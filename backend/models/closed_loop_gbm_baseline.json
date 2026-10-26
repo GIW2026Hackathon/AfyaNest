@@ -1,0 +1,19 @@
+{
+ "farmer_usual": {
+  "mean_nh3_ppm": 29.423269271850586,
+  "hours_above_25ppm_per_house": 157.5,
+  "peak_nh3_ppm": 4211.7353515625,
+  "cold_degree_hours_per_house": 862.6310042308436,
+  "mean_curtain": 0.4366072416305542,
+  "fan_hours_per_house": 41.86111068725586
+ },
+ "with_airnest": {
+  "mean_nh3_ppm": 9.91800594329834,
+  "hours_above_25ppm_per_house": 25.916666666666668,
+  "peak_nh3_ppm": 374.8074035644531,
+  "cold_degree_hours_per_house": 693.2650203439924,
+  "mean_curtain": 0.45196282863616943,
+  "fan_hours_per_house": 109.08333587646484
+ },
+ "forecaster": "gbm_baseline"
+}
