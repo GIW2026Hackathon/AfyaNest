@@ -1,245 +1,167 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import {
-  Lightbulb, TrendingUp, AlertTriangle, Wind, Thermometer,
-  Droplets, Eye, Wrench, Info, BrainCircuit,
-} from 'lucide-react';
+  RadialBarChart, RadialBar, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
+} from 'recharts';
+import { Wind, Thermometer, Droplets, TrendingUp, AlertTriangle, Wrench } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import PageHeader from '../../components/PageHeader';
-import Card from '../../components/Card';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import Card from '../../components/Card';
+import StatusBadge from '../../components/StatusBadge';
 
 // ---------------------------------------------------------------------------
-// Rules-based insight engine
+// Rules engine
 // ---------------------------------------------------------------------------
 function deriveInsights(reading, settings, alerts) {
   if (!reading) return [];
-  const insights = [];
+  const out = [];
   const { ammonia, temperature, humidity } = reading;
   const { warning, danger } = settings.thresholds;
 
-  // Ammonia
-  if (ammonia >= danger) {
-    insights.push({
-      id: 'nh3-danger',
-      type: 'danger',
-      sensor: 'Ammonia',
-      icon: <Wind size={18} />,
-      observation: `Ammonia ADC reading is ${ammonia}, which is at or above the configured danger threshold (${danger}).`,
-      risk: 'Elevated ammonia exposure can cause respiratory distress, eye irritation and reduced growth in poultry.',
-      action: 'Increase ventilation immediately. Inspect for wet litter or manure accumulation. Consider removing birds if conditions persist.',
-      label: 'Danger — Immediate Action Required',
-    });
-  } else if (ammonia >= warning) {
-    insights.push({
-      id: 'nh3-warning',
-      type: 'warning',
-      sensor: 'Ammonia',
-      icon: <Wind size={18} />,
-      observation: `Ammonia ADC reading is ${ammonia}, approaching the warning threshold (${warning}).`,
-      risk: 'Rising ammonia can indicate inadequate litter management or poor airflow, which may worsen if left unaddressed.',
-      action: 'Check ventilation openings. Inspect litter for moisture. Consider adding absorbent bedding material.',
-      label: 'Warning — Monitor Closely',
-    });
-  } else {
-    insights.push({
-      id: 'nh3-safe',
-      type: 'safe',
-      sensor: 'Ammonia',
-      icon: <Wind size={18} />,
-      observation: `Ammonia ADC reading is ${ammonia}, within the acceptable range (below ${warning}).`,
-      risk: 'No immediate ammonia concern detected.',
-      action: 'Continue regular monitoring and maintain current litter management practices.',
-      label: 'Safe — Normal Range',
-    });
-  }
+  if (ammonia >= danger)        out.push({ id: 'nh3-d', sensor: 'Ammonia', type: 'danger',  action: 'Ventilate immediately. Check litter for moisture.' });
+  else if (ammonia >= warning)  out.push({ id: 'nh3-w', sensor: 'Ammonia', type: 'warning', action: 'Inspect ventilation. Check litter condition.' });
+  if (temperature > 32)         out.push({ id: 'tmp-h', sensor: 'Temperature', type: 'warning', action: 'Increase airflow. Provide cool water.' });
+  else if (temperature < 18)    out.push({ id: 'tmp-l', sensor: 'Temperature', type: 'warning', action: 'Check heating. Seal draughts.' });
+  if (humidity > 75)            out.push({ id: 'hum-h', sensor: 'Humidity',    type: 'warning', action: 'Improve ventilation. Fix leaking drinkers.' });
+  else if (humidity < 40)       out.push({ id: 'hum-l', sensor: 'Humidity',    type: 'warning', action: 'Monitor dust levels.' });
 
-  // Temperature
-  if (temperature > 32) {
-    insights.push({
-      id: 'temp-high',
-      type: 'warning',
-      sensor: 'Temperature',
-      icon: <Thermometer size={18} />,
-      observation: `Temperature is ${temperature} °C, which is above the typical comfort range for poultry (18–28 °C).`,
-      risk: 'Heat stress can reduce feed intake, egg production and cause mortality in severe cases.',
-      action: 'Increase ventilation, provide cool drinking water, and consider shading during peak heat hours.',
-      label: 'Warning — High Temperature',
-    });
-  } else if (temperature < 18) {
-    insights.push({
-      id: 'temp-low',
-      type: 'warning',
-      sensor: 'Temperature',
-      icon: <Thermometer size={18} />,
-      observation: `Temperature is ${temperature} °C, below the typical comfort range for mature poultry (18–28 °C).`,
-      risk: 'Cold stress increases energy consumption and can lead to poor performance in young birds.',
-      action: 'Check heating systems and ensure there are no draughts or insulation gaps in the poultry house.',
-      label: 'Warning — Low Temperature',
-    });
-  }
+  const recentWarn = alerts.filter(a =>
+    a.severity === 'warning' && (Date.now() - new Date(a.timestamp)) < 6 * 3_600_000
+  );
+  if (recentWarn.length >= 2)
+    out.push({ id: 'pat', sensor: 'Pattern', type: 'warning', action: `${recentWarn.length} warnings in 6 h — investigate root cause.` });
 
-  // Humidity
-  if (humidity > 75) {
-    insights.push({
-      id: 'hum-high',
-      type: 'warning',
-      sensor: 'Humidity',
-      icon: <Droplets size={18} />,
-      observation: `Humidity is ${humidity}%, above the recommended upper limit of 70–75% for poultry houses.`,
-      risk: 'High humidity promotes wet litter, ammonia release, and pathogen growth including fungi and bacteria.',
-      action: 'Improve air exchange, reduce water spillage, and inspect drinker lines for leaks.',
-      label: 'Warning — High Humidity',
-    });
-  } else if (humidity < 40) {
-    insights.push({
-      id: 'hum-low',
-      type: 'warning',
-      sensor: 'Humidity',
-      icon: <Droplets size={18} />,
-      observation: `Humidity is ${humidity}%, below the recommended lower limit of 40–50%.`,
-      risk: 'Very dry air increases dust levels, which can irritate respiratory tracts.',
-      action: 'Monitor for excessive dust. Ensure adequate water access for birds.',
-      label: 'Warning — Low Humidity',
-    });
-  }
-
-  // Repeated warnings pattern
-  const recentWarnings = alerts.filter(a => {
-    const ago = Date.now() - new Date(a.timestamp).getTime();
-    return a.severity === 'warning' && ago < 6 * 3_600_000;
-  });
-  if (recentWarnings.length >= 2) {
-    insights.push({
-      id: 'repeat-warnings',
-      type: 'warning',
-      sensor: 'Pattern',
-      icon: <TrendingUp size={18} />,
-      observation: `${recentWarnings.length} warning events have been recorded in the last 6 hours.`,
-      risk: 'Repeated warnings suggest a persistent underlying issue rather than a transient spike.',
-      action: 'Investigate root cause. Check litter condition, ventilation equipment and sensor placement.',
-      label: 'Pattern — Repeated Warnings',
-    });
-  }
-
-  return insights;
+  return out;
 }
 
-const TYPE_STYLE = {
-  safe:    { border: '#BBF7D0', bg: '#F0FDF4', color: '#16A34A', tag: '#16A34A' },
-  warning: { border: '#FDE68A', bg: '#FEFCE8', color: '#EAB308', tag: '#EAB308' },
-  danger:  { border: '#FECACA', bg: '#FEF2F2', color: '#DC2626', tag: '#DC2626' },
-};
+const SENSOR_ICONS = { Ammonia: <Wind size={16} />, Temperature: <Thermometer size={16} />, Humidity: <Droplets size={16} />, Pattern: <TrendingUp size={16} /> };
+const TYPE_BORDER  = { safe: '#16A34A', warning: '#EAB308', danger: '#DC2626' };
+const TYPE_BG      = { safe: '#F0FDF4', warning: '#FEFCE8', danger: '#FEF2F2' };
 
-function InsightCard({ insight }) {
-  const style = TYPE_STYLE[insight.type] ?? TYPE_STYLE.safe;
+function InsightRow({ insight }) {
   return (
-    <div
-      className="insight-card"
-      style={{ borderLeft: `4px solid ${style.border}`, background: style.bg }}
-      role="article"
-      aria-label={`${insight.sensor} insight: ${insight.label}`}
-    >
-      <div className="insight-card__header">
-        <span style={{ color: style.color, display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {insight.icon}
-          <strong>{insight.sensor}</strong>
-        </span>
-        <span className="insight-card__tag" style={{ color: style.tag, borderColor: style.border }}>
-          {insight.label}
-        </span>
-      </div>
-
-      <div className="insight-card__body">
-        <div className="insight-row">
-          <Eye size={14} aria-hidden="true" />
-          <div>
-            <div className="insight-row__key">Current Observation</div>
-            <div className="insight-row__val">{insight.observation}</div>
-          </div>
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: '12px',
+      padding: '12px 14px',
+      borderLeft: `3px solid ${TYPE_BORDER[insight.type]}`,
+      background: TYPE_BG[insight.type],
+      borderRadius: '6px',
+    }}>
+      <span style={{ color: TYPE_BORDER[insight.type], marginTop: '1px' }}>{SENSOR_ICONS[insight.sensor]}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <strong style={{ fontSize: '13px' }}>{insight.sensor}</strong>
+          <StatusBadge status={insight.type === 'danger' ? 'danger' : insight.type === 'warning' ? 'warning' : 'safe'} size="sm" />
         </div>
-        <div className="insight-row">
-          <AlertTriangle size={14} aria-hidden="true" />
-          <div>
-            <div className="insight-row__key">Potential Risk</div>
-            <div className="insight-row__val">{insight.risk}</div>
-          </div>
-        </div>
-        <div className="insight-row">
-          <Wrench size={14} aria-hidden="true" />
-          <div>
-            <div className="insight-row__key">Recommended Action</div>
-            <div className="insight-row__val">{insight.action}</div>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#172B3A' }}>
+          <Wrench size={13} color="#64748B" />
+          {insight.action}
         </div>
       </div>
     </div>
   );
 }
 
-export default function AIInsights() {
-  const { latestReading, settings, alerts } = useApp();
+// Radial gauge for a single sensor
+function Gauge({ value, max, color, label, unit }) {
+  const pct = Math.min(100, Math.round(((value ?? 0) / max) * 100));
+  const data = [{ name: label, value: pct, fill: color }];
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ width: 120, height: 120, margin: '0 auto' }}>
+        <ResponsiveContainer>
+          <RadialBarChart innerRadius="60%" outerRadius="90%" data={data} startAngle={210} endAngle={-30} barSize={10}>
+            <RadialBar dataKey="value" cornerRadius={5} background={{ fill: '#EAF0F4' }} />
+          </RadialBarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{ marginTop: '-4px', fontSize: '20px', fontWeight: 700, color: '#172B3A' }}>
+        {value ?? '—'}<span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>{unit}</span>
+      </div>
+      <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>{label}</div>
+    </div>
+  );
+}
+
+export default function AIPrediction() {
+  const { latestReading, settings, alerts, loadHistory } = useApp();
   const insights = useMemo(
     () => deriveInsights(latestReading, settings, alerts),
     [latestReading, settings, alerts]
   );
 
+  const [history, setHistory] = useState([]);
+  const fetchHistory = useCallback(async () => {
+    try { setHistory((await loadHistory('6h')) ?? []); } catch { /* ignore */ }
+  }, [loadHistory]);
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  const chartData = history.map(r => ({
+    ...r,
+    time: new Date(r.timestamp).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }),
+  }));
+
+  if (!latestReading) return <LoadingSpinner message="Loading…" size="lg" />;
+
+  const safeInsights  = insights.filter(i => i.type === 'safe');
+  const actionInsights = insights.filter(i => i.type !== 'safe');
+
   return (
     <div className="page">
-      <PageHeader
-        title="AI Insights"
-        subtitle="Rules-based analysis of current sensor conditions and recommended actions"
-      />
 
-      {/* Methodology notice */}
-      <Card style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-          <BrainCircuit size={32} color="#0077B6" style={{ flexShrink: 0, marginTop: '2px' }} aria-hidden="true" />
-          <div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '15px', color: '#172B3A', fontWeight: 600 }}>
-              About AI Insights — Prototype v1.0
-            </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748B', lineHeight: '1.7' }}>
-              The insights on this page are generated by a <strong>rules-based engine</strong> that compares
-              live sensor readings against configurable thresholds. This is not a trained machine-learning model.
-              No AI model accuracy, confidence scores or ppm predictions are claimed. Once sufficient historical
-              data has been collected and validated, this section will be extended with pattern-recognition
-              and predictive capabilities clearly labelled as such.
-            </p>
+      {/* Gauges */}
+      <Card style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', flexWrap: 'wrap', gap: '12px', padding: '8px 0' }}>
+          <Gauge value={latestReading.ammonia}     max={1023} color="#0077B6" label="Ammonia" unit=" ADC" />
+          <Gauge value={latestReading.temperature} max={50}   color="#DC2626" label="Temp"    unit=" °C" />
+          <Gauge value={latestReading.humidity}    max={100}  color="#16A34A" label="Humidity" unit="%" />
+          <div style={{ textAlign: 'center' }}>
+            <StatusBadge status={latestReading.status} size="lg" />
+            <div style={{ fontSize: '11px', color: '#64748B', marginTop: '8px' }}>Overall</div>
           </div>
         </div>
       </Card>
 
-      {/* Insights */}
-      {!latestReading ? (
-        <LoadingSpinner message="Waiting for sensor data to generate insights…" size="lg" />
-      ) : insights.length === 0 ? (
-        <div style={{ padding: '32px', textAlign: 'center', color: '#64748B' }}>
-          <Lightbulb size={40} color="#D9E5EC" />
-          <p style={{ marginTop: '12px' }}>No insights to display at this time.</p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {insights.map(i => <InsightCard key={i.id} insight={i} />)}
-        </div>
+      {/* Ammonia 6h trend with thresholds */}
+      <Card title="Ammonia — Last 6 Hours" style={{ marginBottom: '16px' }}>
+        {chartData.length === 0 ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: '#64748B', fontSize: '13px' }}>No data yet.</div>
+        ) : (
+          <div style={{ width: '100%', height: 200 }}>
+            <ResponsiveContainer>
+              <LineChart data={chartData} margin={{ top: 4, right: 12, left: -8, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EAF0F4" />
+                <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} width={32} />
+                <Tooltip contentStyle={{ background: '#fff', border: '1px solid #D9E5EC', borderRadius: '8px', fontSize: '12px' }} />
+                <ReferenceLine y={settings.thresholds.warning} stroke="#EAB308" strokeDasharray="4 3"
+                  label={{ value: 'Warn', position: 'insideTopRight', fontSize: 10, fill: '#EAB308' }} />
+                <ReferenceLine y={settings.thresholds.danger} stroke="#DC2626" strokeDasharray="4 3"
+                  label={{ value: 'Danger', position: 'insideTopRight', fontSize: 10, fill: '#DC2626' }} />
+                <Line type="monotone" dataKey="ammonia" stroke="#0077B6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </Card>
+
+      {/* Recommendations */}
+      {actionInsights.length > 0 && (
+        <Card title="Recommendations" style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {actionInsights.map(i => <InsightRow key={i.id} insight={i} />)}
+          </div>
+        </Card>
       )}
 
-      {/* Future ML section */}
-      <Card style={{ marginTop: '32px' }}>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-          <Info size={20} color="#0077B6" style={{ flexShrink: 0, marginTop: '2px' }} aria-hidden="true" />
-          <div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '14px', color: '#172B3A', fontWeight: 600 }}>
-              Machine Learning Predictions — Coming Soon
-            </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748B', lineHeight: '1.7' }}>
-              A future version of AfyaNest will train predictive models on historical sensor data
-              collected by this prototype. Predictions will include forecasted ammonia accumulation trends
-              and early warning detection. Model performance metrics and confidence scores will only be
-              shown once a validated model is deployed.
-            </p>
+      {actionInsights.length === 0 && (
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', color: '#16A34A' }}>
+            <AlertTriangle size={18} />
+            <span style={{ fontSize: '14px', fontWeight: 600 }}>All readings are within normal range.</span>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }

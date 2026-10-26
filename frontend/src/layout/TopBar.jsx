@@ -4,13 +4,11 @@ import { Bell, User, Usb, WifiOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const PAGE_TITLES = {
-  '/':           'Overview',
-  '/live':       'Live Monitoring',
-  '/analytics':  'Environmental Analytics',
-  '/alerts':     'Alert History',
-  '/insights':   'AI Insights',
-  '/device':     'Device Status',
-  '/settings':   'Settings',
+  '/':          'Live Monitoring',
+  '/alerts':    'Alerts',
+  '/insights':  'AI Prediction',
+  '/device':    'Device',
+  '/settings':  'Settings',
 };
 
 function useDateTime() {
@@ -23,63 +21,41 @@ function useDateTime() {
 }
 
 export default function TopBar() {
-  const { unreadAlerts, deviceStatus, demoMode, backendOnline } = useApp();
+  const { unreadAlerts, deviceStatus, demoMode } = useApp();
   const location = useLocation();
   const now = useDateTime();
 
   const pageTitle = PAGE_TITLES[location.pathname] ?? 'AfyaNest';
-
   const deviceConnected = !demoMode && deviceStatus?.connected;
 
-  const dateStr = now.toLocaleDateString('en-KE', {
-    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
-  });
-  const timeStr = now.toLocaleTimeString('en-KE', {
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
+  const timeStr = now.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-KE', { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
     <header className="topbar" role="banner">
       <h1 className="topbar__title">{pageTitle}</h1>
 
       <div className="topbar__right">
-        {/* Date / Time */}
-        <div className="topbar__datetime" aria-live="off" aria-atomic="true">
+        <div className="topbar__datetime">
           <span>{dateStr}</span>
           <span className="topbar__time">{timeStr}</span>
         </div>
 
-        {/* Device connection pill */}
         <div
           className={`topbar__device ${deviceConnected ? 'topbar__device--connected' : 'topbar__device--disconnected'}`}
-          aria-label={deviceConnected ? 'Arduino connected via USB' : 'Arduino not connected'}
-          title={deviceConnected ? 'Arduino connected via USB' : 'Arduino disconnected or demo mode active'}
+          title={deviceConnected ? 'Arduino connected via USB' : 'Not connected'}
         >
-          {deviceConnected
-            ? <Usb size={14} aria-hidden="true" />
-            : <WifiOff size={14} aria-hidden="true" />
-          }
-          <span>{deviceConnected ? 'Arduino Connected' : demoMode ? 'Demo Mode' : 'Not Connected'}</span>
+          {deviceConnected ? <Usb size={14} /> : <WifiOff size={14} />}
+          <span>{deviceConnected ? 'USB' : demoMode ? 'Demo' : 'Offline'}</span>
         </div>
 
-        {/* Notification bell */}
-        <button
-          className="topbar__bell"
-          aria-label={`Notifications${unreadAlerts > 0 ? `, ${unreadAlerts} unread` : ''}`}
-        >
-          <Bell size={18} aria-hidden="true" />
-          {unreadAlerts > 0 && (
-            <span className="topbar__badge" aria-hidden="true">
-              {unreadAlerts > 9 ? '9+' : unreadAlerts}
-            </span>
-          )}
+        <button className="topbar__bell" aria-label={`Alerts${unreadAlerts > 0 ? ` (${unreadAlerts})` : ''}`}>
+          <Bell size={18} />
+          {unreadAlerts > 0 && <span className="topbar__badge">{unreadAlerts > 9 ? '9+' : unreadAlerts}</span>}
         </button>
 
-        {/* User profile */}
-        <div className="topbar__user" aria-label="Signed in as Farm Manager">
-          <div className="topbar__avatar" aria-hidden="true">
-            <User size={16} />
-          </div>
+        <div className="topbar__user">
+          <div className="topbar__avatar"><User size={16} /></div>
           <span className="topbar__username">Farm Manager</span>
         </div>
       </div>

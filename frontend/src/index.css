@@ -1119,3 +1119,107 @@ ul[role="list"] { list-style: none; padding: 0; margin: 0; }
   .sensor-card__value--large { font-size: 22px; }
   .topbar__device span { display: none; }
 }
+
+/* --------------------------------------------------------------------------
+   Live Monitoring — reading strip
+   -------------------------------------------------------------------------- */
+.live-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.live-readings {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.reading-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
+  min-width: 120px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reading-card--status {
+  justify-content: center;
+  gap: 8px;
+  min-width: 160px;
+}
+
+.reading-card__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reading-card__icon { display: flex; align-items: center; }
+
+.reading-card__label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.reading-card__value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.reading-card__unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+.reading-card__time {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   Chart header (metric tabs + range tabs side by side)
+   -------------------------------------------------------------------------- */
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   Icon-only button variant
+   -------------------------------------------------------------------------- */
+.btn--icon {
+  padding: 8px 10px;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive tweaks for new layout
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .live-header { flex-direction: column; }
+  .live-readings { flex-direction: column; }
+  .reading-card { min-width: unset; }
+  .chart-header { flex-direction: column; align-items: flex-start; }
+}
