@@ -91,6 +91,12 @@ def test_service_end_to_end(tmp_path):
     assert st["advice"]["model"] in ("gbm_baseline", "ammonianet")
     assert "plan" in st["advice"] and st["readings"]
 
+    # dashboard endpoints for the React frontend
+    hs = svc.list_houses("admin-key-123")
+    assert hs[0]["device_id"] == "h1" and "device_key" not in hs[0]
+    hist = svc.history("h1", 72, "admin-key-123")
+    assert len(hist["readings"]) == 288 * 6 and hist["alerts"]
+
     # farmer reports curtain by SMS and asks for status
     n = len(notify.SENT)
     svc.incoming_sms("+254700000001", "PAZIA 40")

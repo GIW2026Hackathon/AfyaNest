@@ -156,6 +156,10 @@ class Brain:
         if n_have < MIN_HISTORY:                       # warming up: thresholds only
             lvl = "danger" if now_ppm >= NH3_DANGER else "warn" if now_ppm >= NH3_WARN else "ok"
             reply["level"] = lvl
+            # FIX: in danger, run the fan even while the AI is still warming up
+            reply["fan"] = int(bool(house["has_fan"]) and lvl == "danger")
+            # FIX: store the level so the dashboard doesn't show "ok" during warm-up
+            result["level"] = lvl
             if lvl != "ok":
                 self._alert(house, ts, "ammonia", lvl,
                             f"AirNest {house['name']}: Amonia {now_ppm:.0f}ppm. Fungua pazia."

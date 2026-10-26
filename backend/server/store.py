@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS alerts (
   device_id TEXT, ts INTEGER, kind TEXT, level TEXT, message TEXT);
 CREATE TABLE IF NOT EXISTS advice (
   device_id TEXT PRIMARY KEY, ts INTEGER, json TEXT);
+CREATE TABLE IF NOT EXISTS heartbeat (
+  device_id TEXT PRIMARY KEY, seen INTEGER);
 """
 
 
