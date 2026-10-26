@@ -40,7 +40,7 @@ export default function Sidebar() {
           <Bird size={22} strokeWidth={1.8} />
         </div>
         <div>
-          <div className="sidebar__brand-name">KukuSense AI</div>
+          <div className="sidebar__brand-name">AfyaNest</div>
           <div className="sidebar__brand-sub">Smart Poultry Monitoring</div>
         </div>
       </div>

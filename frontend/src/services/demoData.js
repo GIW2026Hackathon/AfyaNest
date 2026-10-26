@@ -1,5 +1,5 @@
 /**
- * KukuSense AI - Demo Data
+ * AfyaNest - Demo Data
  * Clearly simulated sensor values used when the Arduino / Flask backend
  * is unavailable. These values are NEVER mixed with live readings.
  */

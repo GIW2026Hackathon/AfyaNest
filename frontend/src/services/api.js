@@ -1,5 +1,5 @@
 /**
- * KukuSense AI - API Service Layer
+ * AfyaNest - API Service Layer
  * All HTTP communication with the Flask backend is centralised here.
  * Configure the base URL via the VITE_API_BASE_URL environment variable.
  */

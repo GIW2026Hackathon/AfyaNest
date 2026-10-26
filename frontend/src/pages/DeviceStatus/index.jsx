@@ -61,7 +61,7 @@ export default function DeviceStatus() {
     <div className="page">
       <PageHeader
         title="Device Status"
-        subtitle="Hardware connection and sensor health for your KukuSense prototype"
+        subtitle="Hardware connection and sensor health for your AfyaNest prototype"
         action={
           <button
             className="btn btn--secondary"

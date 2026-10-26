@@ -232,7 +232,7 @@ export default function AIInsights() {
               Machine Learning Predictions — Coming Soon
             </h3>
             <p style={{ margin: 0, fontSize: '13px', color: '#64748B', lineHeight: '1.7' }}>
-              A future version of KukuSense AI will train predictive models on historical sensor data
+              A future version of AfyaNest will train predictive models on historical sensor data
               collected by this prototype. Predictions will include forecasted ammonia accumulation trends
               and early warning detection. Model performance metrics and confidence scores will only be
               shown once a validated model is deployed.

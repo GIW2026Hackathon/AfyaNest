@@ -29,7 +29,7 @@ export default function Overview() {
       {/* Welcome banner */}
       <div className="overview-welcome">
         <div>
-          <h2 className="overview-welcome__title">Welcome to KukuSense AI</h2>
+          <h2 className="overview-welcome__title">Welcome to AfyaNest</h2>
           <p className="overview-welcome__sub">
             Monitor your poultry environment and identify potential risks before they affect your flock.
           </p>

@@ -27,7 +27,7 @@ export default function TopBar() {
   const location = useLocation();
   const now = useDateTime();
 
-  const pageTitle = PAGE_TITLES[location.pathname] ?? 'KukuSense AI';
+  const pageTitle = PAGE_TITLES[location.pathname] ?? 'AfyaNest';
 
   const deviceConnected = !demoMode && deviceStatus?.connected;
 
