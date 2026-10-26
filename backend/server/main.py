@@ -64,10 +64,10 @@ def create_app(db_path=None, model_dir=None, admin_key=None) -> FastAPI:
     app.state.svc = svc
 
     # Let the React (Vite) dashboard call the API from the browser
-    # FIX: Added http://localhost:5174 and http://127.0.0.1:5174 to origins explicitly
     default_origins = (
         "http://localhost:5173,http://127.0.0.1:5173,"
         "http://localhost:5174,http://127.0.0.1:5174,"
+        "http://localhost:5175,http://127.0.0.1:5175,"
         "http://localhost:3000,http://127.0.0.1:3000,"
         "http://localhost:3333,http://127.0.0.1:3333"
     )

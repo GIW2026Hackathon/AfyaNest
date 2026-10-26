@@ -1,13 +1,8 @@
-import { FlaskConical, X } from 'lucide-react';
+import { FlaskConical } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-/**
- * DemoBanner — persistent top banner shown when demo mode is active.
- * Makes it visually clear to any viewer that data is simulated.
- */
 export default function DemoBanner() {
   const { demoMode, toggleDemoMode } = useApp();
-
   if (!demoMode) return null;
 
   return (
@@ -17,7 +12,7 @@ export default function DemoBanner() {
       style={{
         background: '#023E8A',
         color: '#fff',
-        padding: '8px 16px',
+        padding: '7px 16px',
         fontSize: '13px',
         display: 'flex',
         alignItems: 'center',
@@ -28,7 +23,7 @@ export default function DemoBanner() {
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <FlaskConical size={14} aria-hidden="true" />
-        <strong>Demo Data</strong> — simulated sensor values. Connect the Arduino and disable demo mode to view live readings.
+        <strong>Demo Data</strong> — Start the backend (<code style={{ background: 'rgba(255,255,255,0.15)', padding: '1px 6px', borderRadius: '3px' }}>uvicorn server.main:app --port 8000</code>) then exit demo to view live data.
       </span>
       <button
         onClick={() => toggleDemoMode(false)}
@@ -38,8 +33,9 @@ export default function DemoBanner() {
           border: '1px solid rgba(255,255,255,0.4)',
           color: '#fff',
           borderRadius: '4px',
-          padding: '2px 10px',
+          padding: '2px 12px',
           fontSize: '12px',
+          fontWeight: 600,
           cursor: 'pointer',
           whiteSpace: 'nowrap',
         }}

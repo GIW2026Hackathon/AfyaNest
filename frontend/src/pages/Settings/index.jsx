@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { Save, Info } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import Card from '../../components/Card';
+
+// NH3 thresholds from backend config (ppm)
+// NH3_TARGET=15, NH3_WARN=20, NH3_DANGER=25 — see backend/airnest/config.py
+const NH3_MIN = 0;
+const NH3_MAX = 100;
 
 function Field({ label, id, help, children }) {
   return (
@@ -16,7 +21,7 @@ function Field({ label, id, help, children }) {
 }
 
 export default function Settings() {
-  const { settings, updateSettings, loadSettings } = useApp();
+  const { settings, updateSettings, loadSettings, demoMode, backendOnline, deviceId, houses } = useApp();
   const [form, setForm]   = useState(settings);
   const [saved, setSaved] = useState(false);
 
@@ -43,27 +48,33 @@ export default function Settings() {
     setTimeout(() => setSaved(false), 2500);
   }
 
-  const invalid = (form.thresholds?.danger ?? 400) <= (form.thresholds?.warning ?? 300);
+  const w = form.thresholds?.warning ?? 25;
+  const d = form.thresholds?.danger  ?? 35;
+  const invalid = d <= w;
+
+  // Active house name
+  const activeHouse = houses.find(h => h.device_id === deviceId);
 
   return (
     <div className="page">
       <form onSubmit={save}>
 
-        {/* Thresholds */}
-        <Card title="Ammonia Thresholds (ADC)" style={{ marginBottom: '16px' }}>
-          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '16px', lineHeight: '1.5' }}>
-            Raw ADC values — not calibrated ppm. Adjust based on your sensor baseline.
+        {/* Ammonia alert thresholds — these are in ppm, matching the backend */}
+        <Card title="Ammonia Alert Thresholds (ppm)" style={{ marginBottom: '16px' }}>
+          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '16px', lineHeight: '1.6' }}>
+            Backend safe limit: <strong>25 ppm</strong> (NH3_DANGER in config.py).
+            Adjust these dashboard thresholds to match your flock conditions.
           </p>
-          <Field label="Warning" id="warn" help="Status turns yellow at this value.">
-            <input id="warn" type="number" min={0} max={1023}
-              value={form.thresholds?.warning ?? 300}
-              onChange={e => set('thresholds.warning', Number(e.target.value))}
+          <Field label="Warning (ppm)" id="warn" help="Alert turns yellow at or above this level.">
+            <input id="warn" type="number" min={NH3_MIN} max={NH3_MAX} step={0.5}
+              value={w}
+              onChange={e => set('thresholds.warning', parseFloat(e.target.value))}
               className="field-input" />
           </Field>
-          <Field label="Danger" id="danger" help="Status turns red at this value.">
-            <input id="danger" type="number" min={0} max={1023}
-              value={form.thresholds?.danger ?? 400}
-              onChange={e => set('thresholds.danger', Number(e.target.value))}
+          <Field label="Danger (ppm)" id="danger" help="Alert turns red at or above this level.">
+            <input id="danger" type="number" min={NH3_MIN} max={NH3_MAX} step={0.5}
+              value={d}
+              onChange={e => set('thresholds.danger', parseFloat(e.target.value))}
               className="field-input" />
             {invalid && <p style={{ color: '#DC2626', fontSize: '12px', marginTop: '4px' }}>Danger must be above Warning.</p>}
           </Field>
@@ -74,8 +85,8 @@ export default function Settings() {
           <Field label="Temperature unit" id="unit">
             <select id="unit" value={form.temperature_unit ?? 'C'}
               onChange={e => set('temperature_unit', e.target.value)} className="field-input">
-              <option value="C">°C</option>
-              <option value="F">°F</option>
+              <option value="C">Celsius (°C)</option>
+              <option value="F">Fahrenheit (°F)</option>
             </select>
           </Field>
         </Card>
@@ -100,13 +111,35 @@ export default function Settings() {
           })}
         </Card>
 
-        {/* Device info */}
-        <Card title="Device Info" style={{ marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', color: '#64748B', lineHeight: '2' }}>
-            <div><strong>Hardware:</strong> Arduino Uno · MQ-137 · DHT22</div>
-            <div><strong>Connection:</strong> USB Serial</div>
-            <div><strong>Backend:</strong> {import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}</div>
-            <div><strong>ADC range:</strong> 0 – 1023</div>
+        {/* Connection info */}
+        <Card title="Connection Info" style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+            <Info size={16} color="#0077B6" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ fontSize: '13px', color: '#64748B', lineHeight: '2.1' }}>
+              <div>
+                <strong>Backend API:</strong>{' '}
+                <code>{import.meta.env.VITE_API_URL || 'http://localhost:8000'}</code>
+              </div>
+              <div>
+                <strong>API status:</strong>{' '}
+                <span style={{ color: backendOnline ? '#16A34A' : '#DC2626', fontWeight: 600 }}>
+                  {demoMode ? 'Demo mode' : backendOnline ? 'Connected' : 'Unreachable'}
+                </span>
+              </div>
+              {activeHouse && (
+                <div><strong>Active house:</strong> {activeHouse.name} ({deviceId})</div>
+              )}
+              {!demoMode && houses.length > 0 && (
+                <div>
+                  <strong>Registered houses:</strong>{' '}
+                  {houses.map(h => h.name).join(', ')}
+                </div>
+              )}
+              <div>
+                <strong>Backend NH3 thresholds:</strong>{' '}
+                warn 20 ppm · danger 25 ppm (from config.py)
+              </div>
+            </div>
           </div>
         </Card>
 

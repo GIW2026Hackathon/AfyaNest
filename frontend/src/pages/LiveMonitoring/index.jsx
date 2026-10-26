@@ -16,7 +16,7 @@ const RANGES = [
 ];
 
 const CHARTS = {
-  ammonia:     { color: '#0077B6', label: 'Ammonia (ADC)', unit: 'ADC' },
+  ammonia:     { color: '#0077B6', label: 'Ammonia (ppm)', unit: 'ppm' },
   temperature: { color: '#DC2626', label: 'Temperature',   unit: '°C'  },
   humidity:    { color: '#16A34A', label: 'Humidity',      unit: '%'   },
 };
@@ -97,8 +97,8 @@ export default function LiveMonitoring() {
         <ReadingCard
           icon={<Wind size={18} />}
           label="Ammonia"
-          value={latestReading.ammonia}
-          unit=" ADC"
+          value={latestReading.ammonia != null ? parseFloat(latestReading.ammonia.toFixed(1)) : null}
+          unit=" ppm"
           status={latestReading.status}
         />
         <ReadingCard

@@ -218,7 +218,7 @@ function StatBar({ label, avg, min, max, unit }) {
 }
 
 const CHART_TABS = [
-  { key: 'ammonia',     label: 'Ammonia',     color: '#0077B6', unit: 'ADC' },
+  { key: 'ammonia',     label: 'Ammonia',     color: '#0077B6', unit: 'ppm' },
   { key: 'temperature', label: 'Temperature', color: '#DC2626', unit: '°C'  },
   { key: 'humidity',    label: 'Humidity',    color: '#16A34A', unit: '%'   },
 ];
@@ -255,6 +255,7 @@ export default function AIPrediction() {
 
   const actionInsights = insights.filter(i => i.type !== 'safe');
   const allGood        = actionInsights.length === 0;
+  const advice         = latestReading?.advice;
 
   if (!latestReading) return <LoadingSpinner message="Loading…" size="lg" />;
 
@@ -281,20 +282,57 @@ export default function AIPrediction() {
         {/* Sensor gauges */}
         <div className="card ai-gauges-card">
           <div className="ai-gauges-row">
-            <SensorGauge value={latestReading.ammonia}     max={1023} color="#0077B6" label="Ammonia"     unit="ADC" status={nh3Status} />
+            <SensorGauge value={latestReading.ammonia != null ? parseFloat(latestReading.ammonia.toFixed(1)) : null} max={50} color="#0077B6" label="Ammonia" unit="ppm" status={nh3Status} />
             <div className="ai-gauges-divider" />
-            <SensorGauge value={latestReading.temperature} max={50}   color="#DC2626" label="Temperature" unit="°C"  status={tmpStatus} />
+            <SensorGauge value={latestReading.temperature} max={50}  color="#DC2626" label="Temperature" unit="°C" status={tmpStatus} />
             <div className="ai-gauges-divider" />
-            <SensorGauge value={latestReading.humidity}    max={100}  color="#16A34A" label="Humidity"    unit="%"   status={humStatus} />
+            <SensorGauge value={latestReading.humidity}    max={100} color="#16A34A" label="Humidity"    unit="%" status={humStatus} />
           </div>
 
           <div className="ai-stats-grid">
-            <StatBar label="Ammonia"     avg={nh3Stats.avg} min={nh3Stats.min} max={nh3Stats.max} unit=" ADC" />
+            <StatBar label="Ammonia"     avg={nh3Stats.avg} min={nh3Stats.min} max={nh3Stats.max} unit=" ppm" />
             <StatBar label="Temperature" avg={tmpStats.avg} min={tmpStats.min} max={tmpStats.max} unit=" °C" />
             <StatBar label="Humidity"    avg={humStats.avg} min={humStats.min} max={humStats.max} unit="%" />
           </div>
         </div>
       </div>
+
+      {/* ── ML Forecast panel (only when backend advice is available) ── */}
+      {advice && advice.status_quo_peak_nh3 != null && (
+        <Card style={{ marginTop: '16px' }}>
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: '180px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748B', marginBottom: '6px' }}>Without action</div>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: '#DC2626' }}>
+                {advice.status_quo_peak_nh3.toFixed(1)} <span style={{ fontSize: '14px', fontWeight: 500, color: '#64748B' }}>ppm peak</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
+                {advice.hours_to_warn != null ? `Warn threshold in ~${advice.hours_to_warn.toFixed(1)} h` : 'Forecast available'}
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: '180px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748B', marginBottom: '6px' }}>With recommended action</div>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: '#16A34A' }}>
+                {advice.plan_peak_nh3 != null ? advice.plan_peak_nh3.toFixed(1) : '—'} <span style={{ fontSize: '14px', fontWeight: 500, color: '#64748B' }}>ppm peak</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
+                Model: {advice.model ?? 'gbm_baseline'}
+              </div>
+            </div>
+            {advice.findings && advice.findings.length > 0 && (
+              <div style={{ flex: 2, minWidth: '220px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748B', marginBottom: '6px' }}>Findings</div>
+                {advice.findings.map((f, i) => (
+                  <div key={i} style={{ fontSize: '12px', color: '#172B3A', marginBottom: '4px', display: 'flex', gap: '6px' }}>
+                    <TrendingUp size={12} color="#EAB308" style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <span>{f.detail || f.type}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* ── Row 2: Trend chart ── */}
       <Card style={{ marginTop: '16px' }}>
