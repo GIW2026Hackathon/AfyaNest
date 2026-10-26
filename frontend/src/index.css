@@ -1123,37 +1123,17 @@ ul[role="list"] { list-style: none; padding: 0; margin: 0; }
 /* --------------------------------------------------------------------------
    Live Monitoring — reading strip
    -------------------------------------------------------------------------- */
-.live-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  justify-content: space-between;
-}
 
-.live-readings {
-  display: flex;
-  gap: 12px;
-  flex: 1;
-  flex-wrap: wrap;
-}
-
+/* Shared reading card */
 .reading-card {
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   padding: 14px 16px;
-  min-width: 120px;
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-.reading-card--status {
-  justify-content: center;
-  gap: 8px;
-  min-width: 160px;
 }
 
 .reading-card__top {
@@ -1186,13 +1166,59 @@ ul[role="list"] { list-style: none; padding: 0; margin: 0; }
   margin-left: 2px;
 }
 
-.reading-card__time {
+.live-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.live-strip .reading-card {
+  flex: 1;
+  min-width: 0;
+}
+
+.live-strip__meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.live-strip__device {
   display: flex;
   align-items: center;
   gap: 5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.live-strip__time {
   font-size: 11px;
   color: var(--text-secondary);
-  margin-top: 4px;
+  margin-left: 4px;
+}
+
+/* Fixed-height chart area so ResponsiveContainer always has a parent height */
+.live-chart-area {
+  width: 100%;
+  height: 320px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-chart-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 /* --------------------------------------------------------------------------
@@ -1217,11 +1243,18 @@ ul[role="list"] { list-style: none; padding: 0; margin: 0; }
 /* --------------------------------------------------------------------------
    Responsive tweaks for new layout
    -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .live-strip { flex-wrap: wrap; }
+  .live-strip .reading-card { flex: 1 1 calc(50% - 6px); }
+  .live-strip__meta { flex: 1 1 calc(50% - 6px); }
+}
+
 @media (max-width: 768px) {
-  .live-header { flex-direction: column; }
-  .live-readings { flex-direction: column; }
-  .reading-card { min-width: unset; }
+  .live-strip { flex-direction: column; }
+  .live-strip .reading-card,
+  .live-strip__meta { min-width: unset; width: 100%; }
   .chart-header { flex-direction: column; align-items: flex-start; }
+  .live-chart-area { height: 240px; }
 }
 
 /* ==========================================================================
