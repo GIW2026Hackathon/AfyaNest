@@ -2,44 +2,37 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import * as api from '../services/api';
 import {
   DEMO_ALERTS,
-  DEMO_ANALYTICS,
   DEMO_DEVICE,
-  DEMO_HISTORY,
   DEMO_LATEST,
   DEMO_SETTINGS,
+  getDemoHistory,
 } from '../services/demoData';
 
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [demoMode, setDemoMode] = useState(true); // start in demo until backend confirmed
+  const [demoMode, setDemoMode]           = useState(true);
   const [latestReading, setLatestReading] = useState(null);
-  const [deviceStatus, setDeviceStatus] = useState(null);
-  const [alerts, setAlerts] = useState([]);
-  const [settings, setSettings] = useState(DEMO_SETTINGS);
+  const [deviceStatus, setDeviceStatus]   = useState(null);
+  const [alerts, setAlerts]               = useState([]);
+  const [settings, setSettings]           = useState(DEMO_SETTINGS);
   const [backendOnline, setBackendOnline] = useState(false);
-  const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [unreadAlerts, setUnreadAlerts]   = useState(0);
   const pollRef = useRef(null);
 
-  // ------------------------------------------------------------------
-  // Helpers
-  // ------------------------------------------------------------------
-  function getStatus(ammoniaAdc, settings) {
+  function getStatus(ammoniaAdc, cfg) {
     if (ammoniaAdc == null) return 'no_data';
-    if (ammoniaAdc >= settings.thresholds.danger)  return 'danger';
-    if (ammoniaAdc >= settings.thresholds.warning) return 'warning';
+    if (ammoniaAdc >= cfg.thresholds.danger)  return 'danger';
+    if (ammoniaAdc >= cfg.thresholds.warning) return 'warning';
     return 'safe';
   }
 
-  // ------------------------------------------------------------------
-  // Fetch latest reading (live or demo)
-  // ------------------------------------------------------------------
   const refreshLatest = useCallback(async () => {
     if (demoMode) {
       const reading = { ...DEMO_LATEST, timestamp: new Date().toISOString() };
       reading.status = getStatus(reading.ammonia, settings);
       setLatestReading(reading);
-      setDeviceStatus(DEMO_DEVICE);
+      setDeviceStatus({ ...DEMO_DEVICE, last_update: new Date().toISOString() });
       return;
     }
     try {
@@ -47,18 +40,13 @@ export function AppProvider({ children }) {
       data.status = getStatus(data.ammonia, settings);
       setLatestReading(data);
       setBackendOnline(true);
-    } catch {
-      setBackendOnline(false);
-    }
+    } catch { setBackendOnline(false); }
     try {
       const ds = await api.fetchDeviceStatus();
       setDeviceStatus(ds);
     } catch { /* ignore */ }
   }, [demoMode, settings]);
 
-  // ------------------------------------------------------------------
-  // Fetch alerts
-  // ------------------------------------------------------------------
   const refreshAlerts = useCallback(async () => {
     if (demoMode) {
       setAlerts(DEMO_ALERTS);
@@ -72,9 +60,6 @@ export function AppProvider({ children }) {
     } catch { /* ignore */ }
   }, [demoMode]);
 
-  // ------------------------------------------------------------------
-  // Settings
-  // ------------------------------------------------------------------
   const updateSettings = useCallback(async (next) => {
     setSettings(next);
     if (!demoMode) {
@@ -82,18 +67,12 @@ export function AppProvider({ children }) {
     }
   }, [demoMode]);
 
-  // ------------------------------------------------------------------
-  // Toggle demo mode
-  // ------------------------------------------------------------------
   const toggleDemoMode = useCallback((val) => {
     setDemoMode(val);
     setLatestReading(null);
     setDeviceStatus(null);
   }, []);
 
-  // ------------------------------------------------------------------
-  // Polling (every 5 s in live mode, 30 s in demo)
-  // ------------------------------------------------------------------
   useEffect(() => {
     refreshLatest();
     refreshAlerts();
@@ -105,16 +84,26 @@ export function AppProvider({ children }) {
     return () => clearInterval(pollRef.current);
   }, [demoMode, refreshLatest, refreshAlerts]);
 
-  // ------------------------------------------------------------------
-  // History / analytics helpers (called on demand by pages)
-  // ------------------------------------------------------------------
   async function loadHistory(range) {
-    if (demoMode) return DEMO_HISTORY[range] ?? DEMO_HISTORY['1h'];
+    if (demoMode) return getDemoHistory(range);
     return api.fetchReadingHistory(range);
   }
 
   async function loadAnalytics(from, to) {
-    if (demoMode) return DEMO_ANALYTICS;
+    if (demoMode) {
+      const readings = getDemoHistory('24h');
+      const avg = (arr, key) => Math.round(arr.reduce((s, r) => s + r[key], 0) / arr.length * 10) / 10;
+      const min = (arr, key) => Math.min(...arr.map(r => r[key]));
+      const max = (arr, key) => Math.max(...arr.map(r => r[key]));
+      return {
+        ammonia:     { avg: avg(readings, 'ammonia'),     min: min(readings, 'ammonia'),     max: max(readings, 'ammonia') },
+        temperature: { avg: avg(readings, 'temperature'), min: min(readings, 'temperature'), max: max(readings, 'temperature') },
+        humidity:    { avg: avg(readings, 'humidity'),    min: min(readings, 'humidity'),    max: max(readings, 'humidity') },
+        warnings: 3,
+        dangers:  1,
+        readings,
+      };
+    }
     return api.fetchAnalytics(from, to);
   }
 
@@ -124,20 +113,13 @@ export function AppProvider({ children }) {
   }
 
   const value = {
-    demoMode,
-    toggleDemoMode,
-    latestReading,
-    deviceStatus,
-    alerts,
-    unreadAlerts,
-    settings,
-    updateSettings,
+    demoMode, toggleDemoMode,
+    latestReading, deviceStatus,
+    alerts, unreadAlerts,
+    settings, updateSettings,
     backendOnline,
-    refreshLatest,
-    refreshAlerts,
-    loadHistory,
-    loadAnalytics,
-    loadSettings,
+    refreshLatest, refreshAlerts,
+    loadHistory, loadAnalytics, loadSettings,
     getStatus: (adc) => getStatus(adc, settings),
   };
 

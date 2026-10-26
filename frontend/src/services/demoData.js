@@ -1,111 +1,119 @@
 /**
  * AfyaNest - Demo Data
- * Clearly simulated sensor values used when the Arduino / Flask backend
- * is unavailable. These values are NEVER mixed with live readings.
+ * Simulated sensor values. Regenerated fresh on every call so
+ * charts always show data relative to "now".
  */
 
-// Deterministic seeded pseudo-random for reproducible demo charts
 function seededRand(seed) {
   let s = seed;
   return () => {
-    s = (s * 16807 + 0) % 2147483647;
+    s = (s * 16807) % 2147483647;
     return (s - 1) / 2147483646;
   };
 }
 
-function generateHistory(points, rangeMinutes) {
-  const rand = seededRand(42);
+/** Smooth walk so the chart looks like real sensor data, not noise */
+function generateHistory(points, rangeMinutes, seed = 42) {
+  const rand = seededRand(seed);
   const now = Date.now();
   const interval = (rangeMinutes * 60 * 1000) / points;
+
+  let nh3  = 280;
+  let temp = 26.5;
+  let hum  = 63;
+
   return Array.from({ length: points }, (_, i) => {
     const t = new Date(now - (points - 1 - i) * interval);
-    const noise = () => (rand() - 0.5) * 2;
+
+    // Slow random walk
+    nh3  = Math.max(180, Math.min(460, nh3  + (rand() - 0.48) * 18));
+    temp = Math.max(20,  Math.min(35,  temp + (rand() - 0.5)  * 0.6));
+    hum  = Math.max(45,  Math.min(85,  hum  + (rand() - 0.5)  * 2));
+
     return {
-      timestamp: t.toISOString(),
-      ammonia: Math.round(280 + noise() * 60),     // raw ADC reading
-      temperature: parseFloat((26 + noise() * 3).toFixed(1)),
-      humidity: Math.round(62 + noise() * 10),
+      timestamp:   t.toISOString(),
+      ammonia:     Math.round(nh3),
+      temperature: parseFloat(temp.toFixed(1)),
+      humidity:    Math.round(hum),
     };
   });
 }
 
-export const DEMO_LATEST = {
-  ammonia: 312,          // raw MQ-137 ADC value — NOT ppm
-  temperature: 27.4,
-  humidity: 65,
-  timestamp: new Date().toISOString(),
-  device_connected: false, // demo = no real device
-  _demo: true,
-};
+// Regenerate fresh each time the module is evaluated
+export function getDemoHistory(range) {
+  const cfg = { '1h': [60, 60], '6h': [72, 360], '24h': [96, 1440] };
+  const [points, minutes] = cfg[range] ?? cfg['1h'];
+  return generateHistory(points, minutes);
+}
 
-export const DEMO_HISTORY = {
-  '1h':  generateHistory(60,  60),
-  '6h':  generateHistory(72,  360),
-  '24h': generateHistory(96,  1440),
+export const DEMO_LATEST = {
+  ammonia:          312,
+  temperature:      27.4,
+  humidity:         65,
+  timestamp:        new Date().toISOString(),
+  device_connected: false,
+  status:           'warning',
+  _demo:            true,
 };
 
 export const DEMO_ALERTS = [
   {
     id: 'demo-1',
-    timestamp: new Date(Date.now() - 3_600_000).toISOString(),
+    timestamp: new Date(Date.now() - 1_800_000).toISOString(),
     type: 'Ammonia Warning',
-    reading: '348 (ADC)',
+    reading: '348 ADC',
     severity: 'warning',
-    message: 'Ammonia sensor reading has entered the warning range.',
-    status: 'resolved',
-    _demo: true,
+    message: 'Ammonia reading entered warning range.',
+    status: 'active',
   },
   {
     id: 'demo-2',
-    timestamp: new Date(Date.now() - 7_200_000).toISOString(),
-    type: 'Temperature Warning',
-    reading: '31.2 °C',
+    timestamp: new Date(Date.now() - 3_600_000).toISOString(),
+    type: 'High Temperature',
+    reading: '32.1 °C',
     severity: 'warning',
-    message: 'Temperature is outside the configured range.',
+    message: 'Temperature above comfort range.',
     status: 'resolved',
-    _demo: true,
   },
   {
     id: 'demo-3',
     timestamp: new Date(Date.now() - 14_400_000).toISOString(),
     type: 'Ammonia Danger',
-    reading: '421 (ADC)',
+    reading: '421 ADC',
     severity: 'danger',
-    message: 'Environmental conditions require urgent inspection.',
+    message: 'Ammonia at danger level. Immediate action required.',
     status: 'resolved',
-    _demo: true,
   },
   {
     id: 'demo-4',
+    timestamp: new Date(Date.now() - 28_800_000).toISOString(),
+    type: 'High Humidity',
+    reading: '82%',
+    severity: 'warning',
+    message: 'Humidity above recommended limit.',
+    status: 'resolved',
+  },
+  {
+    id: 'demo-5',
     timestamp: new Date(Date.now() - 86_400_000).toISOString(),
     type: 'Connection Lost',
     reading: '—',
     severity: 'warning',
-    message: 'Device connection lost. Check USB cable.',
+    message: 'Device connection lost.',
     status: 'resolved',
-    _demo: true,
   },
 ];
 
-export const DEMO_ANALYTICS = {
-  ammonia:     { avg: 298, min: 210, max: 421 },
-  temperature: { avg: 26.8, min: 22.1, max: 31.2 },
-  humidity:    { avg: 63, min: 52, max: 78 },
-  warnings: 3,
-  dangers: 1,
-  readings: DEMO_HISTORY['24h'],
-};
-
 export const DEMO_DEVICE = {
-  connected: false,
-  port: 'COM3 (demo)',
-  last_update: new Date(Date.now() - 5000).toISOString(),
+  connected:    false,
+  port:         'COM3 (demo)',
+  last_update:  new Date(Date.now() - 8000).toISOString(),
   sensor_errors: [],
-  _demo: true,
+  _demo:        true,
 };
 
 export const DEMO_SETTINGS = {
-  thresholds: { warning: 300, danger: 400 },
+  thresholds:       { warning: 300, danger: 400 },
   temperature_unit: 'C',
-  notifications: { sound: true, email: false },
+  notifications:    { sound: true, email: false },
 };

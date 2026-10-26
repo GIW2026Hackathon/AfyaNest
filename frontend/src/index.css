@@ -1223,3 +1223,215 @@ ul[role="list"] { list-style: none; padding: 0; margin: 0; }
   .reading-card { min-width: unset; }
   .chart-header { flex-direction: column; align-items: flex-start; }
 }
+
+/* ==========================================================================
+   AI Prediction Page
+   ========================================================================== */
+
+.ai-prediction-page { display: flex; flex-direction: column; gap: 0; }
+
+/* ── Top row: risk ring + gauges ── */
+.ai-top-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* Risk score card */
+.ai-risk-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 16px;
+}
+
+.ai-risk-card__updated {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Gauges card */
+.ai-gauges-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.ai-gauges-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 8px;
+}
+
+.ai-gauges-divider {
+  width: 1px;
+  height: 60px;
+  background: var(--border);
+  align-self: center;
+}
+
+.sensor-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+/* Stats bar */
+.ai-stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.ai-stat-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.ai-stat-bar__label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 80px;
+  flex-shrink: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ai-stat-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  flex: 1;
+  justify-content: center;
+}
+
+.ai-stat-bar__key {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  margin-right: 2px;
+}
+
+/* ── Chart header ── */
+.ai-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Insight cards ── */
+.ai-insight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-insight-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-left: 4px solid;
+  border-radius: 8px;
+}
+
+.ai-insight-card__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-insight-card__sensor-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ai-insight-card__labels {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.ai-insight-card__sensor {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.ai-insight-card__headline {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ai-insight-card__status-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ai-insight-card__action {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-primary);
+  padding-left: 26px;
+  line-height: 1.5;
+}
+
+/* ── All-good state ── */
+.ai-all-good {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 4px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .ai-top-row {
+    grid-template-columns: 1fr;
+  }
+  .ai-risk-card {
+    flex-direction: row;
+    justify-content: center;
+    gap: 24px;
+    padding: 16px 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .ai-gauges-row { gap: 4px; }
+  .ai-stat-bar__label { width: 68px; }
+  .ai-chart-header { flex-direction: column; align-items: flex-start; }
+  .ai-risk-card { flex-direction: column; }
+}
