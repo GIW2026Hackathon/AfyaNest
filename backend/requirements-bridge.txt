@@ -1,0 +1,2 @@
+# for tools/serial_bridge.py on the computer the Arduino is plugged into
+pyserial>=3.5

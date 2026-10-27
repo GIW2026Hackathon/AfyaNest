@@ -50,13 +50,13 @@ def advice_sms(house_name, adv: Advice, now_ppm, current_curtain, comfort_low, l
     if lang == "sw":
         when = (f"itafika {adv.status_quo_peak_nh3:.0f}ppm ndani ya saa {adv.hours_to_warn:.0f}"
                 if adv.hours_to_warn and now_ppm < 20 else f"iko {now_ppm:.0f}ppm")
-        msg = f"AirNest {lvl} {house_name}: Amonia {when} ({zone}). {act}."
+        msg = f"AfyaNest {lvl} {house_name}: Amonia {when} ({zone}). {act}."
         if adv.best_min_temp < comfort_low - 3:
             msg += " Kuku wataona baridi: ongeza joto/matandiko makavu."
     else:
         when = (f"will reach {adv.status_quo_peak_nh3:.0f}ppm within {adv.hours_to_warn:.0f}h"
                 if adv.hours_to_warn and now_ppm < 20 else f"is {now_ppm:.0f}ppm")
-        msg = f"AirNest {lvl} {house_name}: Ammonia {when} ({zone}). {act}."
+        msg = f"AfyaNest {lvl} {house_name}: Ammonia {when} ({zone}). {act}."
         if adv.best_min_temp < comfort_low - 3:
             msg += " Birds will be cold: add heat/dry litter."
     return msg
@@ -66,18 +66,18 @@ def finding_sms(house_name, f, lang="sw"):
     zone = ZONES[lang].get(f["node"], f["node"])
     if lang == "sw":
         if f["type"] == "wet_litter":
-            return (f"AirNest {house_name}: Amonia na unyevu vinapanda {zone}. "
+            return (f"AfyaNest {house_name}: Amonia na unyevu vinapanda {zone}. "
                     "Angalia maji yanayovuja, badilisha matandiko yaliyolowa.")
         if f["type"] == "heater_failure":
-            return (f"AirNest {house_name}: Joto la vifaranga linashuka. "
+            return (f"AfyaNest {house_name}: Joto la vifaranga linashuka. "
                     "Angalia jiko/brooder sasa.")
-        return f"AirNest {house_name}: Sensa ya {zone} ina hitilafu. Safisha au mwite fundi."
+        return f"AfyaNest {house_name}: Sensa ya {zone} ina hitilafu. Safisha au mwite fundi."
     if f["type"] == "wet_litter":
-        return (f"AirNest {house_name}: Ammonia and humidity rising at {zone}. "
+        return (f"AfyaNest {house_name}: Ammonia and humidity rising at {zone}. "
                 "Check for a leaking drinker and replace wet litter.")
     if f["type"] == "heater_failure":
-        return f"AirNest {house_name}: Brooder temperature dropping. Check the heater now."
-    return f"AirNest {house_name}: Sensor at {zone} looks faulty. Clean it or call the technician."
+        return f"AfyaNest {house_name}: Brooder temperature dropping. Check the heater now."
+    return f"AfyaNest {house_name}: Sensor at {zone} looks faulty. Clean it or call the technician."
 
 
 def climate_sms(house_name, risk, plan, current_curtain, lang="sw"):
@@ -94,17 +94,33 @@ def climate_sms(house_name, risk, plan, current_curtain, lang="sw"):
     if lang == "sw":
         when = "sasa" if soon else f"ndani ya saa {max(1, round(h))}"
         if risk["kind"] == "cold":
-            return (f"AirNest {lvl} {house_name}: Baridi {when}, {t:.0f}C {zone} "
+            return (f"AfyaNest {lvl} {house_name}: Baridi {when}, {t:.0f}C {zone} "
                     f"(kuku wanahitaji {lo:.0f}-{hi:.0f}C). Ongeza moto kwenye brooder/jiko, "
                     f"zuia upepo, matandiko makavu.{act_s}")
-        return (f"AirNest {lvl} {house_name}: Joto kali {when}, {t:.0f}C {zone} "
+        return (f"AfyaNest {lvl} {house_name}: Joto kali {when}, {t:.0f}C {zone} "
                 f"(kuku wanahitaji {lo:.0f}-{hi:.0f}C).{act_s} Maji safi ya baridi, "
                 "usiwasumbue kuku mchana.")
     when = "now" if soon else f"within {max(1, round(h))}h"
     if risk["kind"] == "cold":
-        return (f"AirNest {lvl} {house_name}: Cold {when}, {t:.0f}C at {zone} "
+        return (f"AfyaNest {lvl} {house_name}: Cold {when}, {t:.0f}C at {zone} "
                 f"(birds need {lo:.0f}-{hi:.0f}C). Add heat at the brooder, block draughts, "
                 f"dry litter.{act_s}")
-    return (f"AirNest {lvl} {house_name}: Heat stress {when}, {t:.0f}C at {zone} "
+    return (f"AfyaNest {lvl} {house_name}: Heat stress {when}, {t:.0f}C at {zone} "
             f"(birds need {lo:.0f}-{hi:.0f}C).{act_s} Give cool fresh water, "
             "avoid disturbing birds at midday.")
+
+
+def check_in_text(check, lang="sw"):
+    """' Angalia banda saa 02:30.' appended to an alert when a check-in time is known."""
+    if not check or not check.get("local"):
+        return ""
+    return (f" Angalia banda saa {check['local']}." if lang == "sw"
+            else f" Check the house at {check['local']}.")
+
+
+def voice_text(sms: str, lang="sw") -> str:
+    """Spoken version of an alert: drop the 'AfyaNest LEVEL name:' prefix, add a lead-in."""
+    body = sms.split(": ", 1)[1] if ": " in sms else sms
+    lead = "Hii ni AfyaNest. Hatari kwenye banda lako. " if lang == "sw" else \
+        "This is AfyaNest. Danger in your poultry house. "
+    return lead + body

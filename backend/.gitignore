@@ -5,3 +5,6 @@ data/
 *.db
 .env
 models/*.pt
+.airnest_data_key
+*.db-wal
+*.db-shm

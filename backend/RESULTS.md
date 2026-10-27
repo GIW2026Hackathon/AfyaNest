@@ -5,6 +5,10 @@ They prove the pipeline and control logic work; they are **not** field results.
 
 ## Forecasting ammonia (gradient-boosting baseline, test houses)
 
+Retrained October 2026 on 12,000 windows (was 6,000): MAE 1.22 / 1.83 / 2.69 ppm at
+1 / 3 / 6 h (was 1.27 / 1.92 / 2.82), 80 % band coverage 74 % (was 73 %), early-warning
+recall 70 %, false alarms 0.03 %. Table below is the original run, kept for comparison.
+
 | Horizon | Model error (MAE, ppm) | "Stays the same" guess | Improvement |
 |---|---|---|---|
 | 1 h | 1.27 | 2.45 | 48 % |

@@ -38,12 +38,13 @@ class Advice:
     level: str                              # ok | watch | warn | danger
     costs: dict
     climate: list = field(default_factory=list)   # cold / heat risks (see climate_risks)
+    forecast: dict = field(default_factory=dict)  # 6 h curves for the dashboard
 
 
 BIRD_ZONES = slice(0, 4)                    # brooder, drinkers, centre (not curtain/fan end)
 
 
-def climate_risks(temp_now, temp_fc, rh_now, age_days):
+def climate_risks(temp_now, temp_fc, rh_now, age_days, measured=None):
     """Cold and heat stress for the birds over the next hours if nothing changes.
 
     temp_now [N], temp_fc [H,N] (median forecast), rh_now [N].
@@ -54,22 +55,35 @@ def climate_risks(temp_now, temp_fc, rh_now, age_days):
     lo, hi = comfort_temp(age_days)
     # young chicks are kept inside the brooder ring: only that zone matters for them
     zones = slice(0, 1) if age_days < 10 else BIRD_ZONES
-    t = np.vstack([temp_now[None], temp_fc])[:, zones]
+    t = np.vstack([temp_now[None], temp_fc])[:, zones].astype(float)
+    names = NODE_NAMES[zones]
+    if measured is not None:
+        # judge only zones that really have a sensor (gap-filled zones are guesses)
+        m = np.asarray(measured, bool)[zones]
+        if not m.any():                       # e.g. chicks in the brooder but the box hangs elsewhere
+            m = np.asarray(measured, bool)[BIRD_ZONES]
+            t = np.vstack([temp_now[None], temp_fc])[:, BIRD_ZONES].astype(float)
+            names = NODE_NAMES[BIRD_ZONES]
+        if not m.any():
+            return []
+        t[:, ~m] = np.nan
     out = []
-    tmin, tmax = float(t.min()), float(t.max())
+    tmin, tmax = float(np.nanmin(t)), float(np.nanmax(t))
     if tmin < lo - 3:
-        first = int(np.argmax(t.min(1) < lo - 3))
+        first = int(np.argmax(np.nanmin(t, 1) < lo - 3))
         out.append(dict(kind="cold", level="danger" if tmin < lo - 6 else "warn",
                         temp=tmin, comfort=(lo, hi),
-                        node=NODE_NAMES[zones][int(t.min(0).argmin())],
+                        node=names[int(np.nanargmin(np.nanmin(t, 0)))],
                         hours_to=first / STEPS_PER_HOUR))
-    humid = float(np.mean(rh_now[BIRD_ZONES])) > 70
+    rh = rh_now[BIRD_ZONES] if measured is None else \
+        np.where(np.asarray(measured, bool)[BIRD_ZONES], rh_now[BIRD_ZONES], np.nan)
+    humid = bool(np.nanmean(rh) > 70) if not np.isnan(rh).all() else False
     margin = 1.5 if humid else 0.0
     if tmax > hi + 3 - margin:
-        first = int(np.argmax(t.max(1) > hi + 3 - margin))
+        first = int(np.argmax(np.nanmax(t, 1) > hi + 3 - margin))
         out.append(dict(kind="heat", level="danger" if tmax > hi + 6 - margin else "warn",
                         temp=tmax, comfort=(lo, hi), humid=humid,
-                        node=NODE_NAMES[zones][int(t.max(0).argmax())],
+                        node=names[int(np.nanargmax(np.nanmax(t, 0)))],
                         hours_to=first / STEPS_PER_HOUR))
     return out
 
@@ -104,7 +118,7 @@ def candidate_plans(cur_curtain: float, has_fan: bool, usual_curtain=None,
     return plans
 
 
-def advise(forecaster, xh, gh, gf, age_days: float, has_fan: bool,
+def advise(forecaster, xh, gh, gf, age_days: float, has_fan: bool, measured_temp=None,
            w_nh3=1.0, w_cold=3.0, w_hot=0.5, w_effort=0.05, w_fan=0.02) -> Advice:
     """xh [L,N,F], gh [L,G], gf [H,G] in real units for ONE house.
 
@@ -151,4 +165,24 @@ def advise(forecaster, xh, gh, gf, age_days: float, has_fan: bool,
                   best_min_temp=float((temp[bi, ..., :4, 1]).min()),
                   level=level,
                   costs={p.name: float(c) for p, c in zip(plans, cost)},
-                  climate=climate_risks(xh[-1, :, 1], temp[0, ..., 1], xh[-1, :, 2], age_days))
+                  climate=climate_risks(xh[-1, :, 1], temp[0, ..., 1], xh[-1, :, 2], age_days,
+                                        measured_temp),
+                  forecast=forecast_curves(nh3, temp, 0, bi))
+
+
+def forecast_curves(nh3, temp, sq: int, best: int, every: int = 2) -> dict:
+    """Compact 6-hour curves (every 20 min) for 'if nothing changes' vs 'follow advice'.
+
+    nh3/temp [P,H,N,Q]. Ammonia: worst node per quantile. Temperature: coldest and
+    warmest bird zone (median)."""
+    idx = list(range(every - 1, nh3.shape[1], every))
+
+    def curves(p):
+        n = nh3[p][idx]                                        # [h,N,Q]
+        t = temp[p][idx][:, BIRD_ZONES, 1]                     # [h,4]
+        r = lambda a: [round(float(v), 2) for v in a]          # noqa: E731
+        return {"nh3_p10": r(n[..., 0].max(1)), "nh3_p50": r(n[..., 1].max(1)),
+                "nh3_p90": r(n[..., 2].max(1)), "temp_min": r(t.min(1)),
+                "temp_max": r(t.max(1))}
+    return {"hours": [round((i + 1) / STEPS_PER_HOUR, 3) for i in idx],
+            "status_quo": curves(sq), "plan": curves(best)}

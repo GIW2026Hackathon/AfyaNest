@@ -33,3 +33,31 @@ def send_sms(to: str, message: str) -> bool:
     except Exception as e:                  # never crash ingestion because of SMS
         log.error("SMS failed: %s", e)
         return False
+
+
+CALLS = []                                  # in-memory log of voice calls (tests)
+
+
+def dry_run() -> bool:
+    return os.getenv("AIRNEST_DRY_RUN") == "1" or not (os.getenv("AT_USERNAME") and os.getenv("AT_API_KEY"))
+
+
+def call(to: str, message: str) -> bool:
+    """Danger voice call through Africa's Talking Voice. Needs AT_VOICE_NUMBER; when the
+    call is answered, AT fetches /api/v1/voice which reads `message` aloud."""
+    CALLS.append((to, message))
+    user, key, number = os.getenv("AT_USERNAME"), os.getenv("AT_API_KEY"), os.getenv("AT_VOICE_NUMBER")
+    if dry_run() or not number:
+        log.info("DRY-RUN CALL to %s: %s", to, message)
+        return True
+    req = urllib.request.Request(
+        "https://voice.africastalking.com/call",
+        data=urllib.parse.urlencode({"username": user, "from": number, "to": to}).encode(),
+        headers={"apiKey": key, "Accept": "application/json",
+                 "Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return 200 <= r.status < 300
+    except Exception as e:
+        log.error("voice call failed: %s", e)
+        return False
