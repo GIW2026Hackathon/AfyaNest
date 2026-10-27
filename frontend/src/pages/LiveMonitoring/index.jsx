@@ -8,6 +8,7 @@ import { useApp } from '../../context/AppContext';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Card from '../../components/Card';
+import AmmoniaGauge from '../../components/AmmoniaGauge';
 
 const RANGES = [
   { value: '1h',  label: '1h'  },
@@ -139,6 +140,18 @@ export default function LiveMonitoring() {
           <RefreshCw size={14} className={refreshing ? 'spin' : ''} />
         </button>
       </div>
+
+      {/* ── Ammonia Gauge ── */}
+      <Card style={{ marginTop: '14px' }}>
+        <AmmoniaGauge
+          livePpm={
+            // Pass real value when live and available; null falls back to simulation
+            !demoMode && latestReading?.ammonia != null
+              ? parseFloat(latestReading.ammonia.toFixed(1))
+              : null
+          }
+        />
+      </Card>
 
       {/* ── Trend chart ── */}
       <Card style={{ marginTop: '14px' }}>
