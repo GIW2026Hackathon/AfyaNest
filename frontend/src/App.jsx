@@ -7,8 +7,12 @@ import Farmer from './pages/Farmer'
 import Farmers from './pages/Farmers'
 import House from './pages/House'
 import Intro from './pages/Intro'
+import Danger from './pages/Danger'
 import Outbreaks from './pages/Outbreaks'
+import Prediction from './pages/Prediction'
+import Simulator from './pages/Simulator'
 import Overview from './pages/Overview'
+import Remote, { useSecretTaps } from './pages/Remote'
 import { Icon, initials, Logo, ServerStatus } from './pages/ui'
 
 function useHashRoute() {
@@ -84,6 +88,9 @@ export default function App() {
     else if (section === 'farmers') body = <Farmers user={user} query={query} key={route} />
     else if (section === 'house' && id) body = <House id={decodeURIComponent(id)} user={user} />
     else if (section === 'disease') body = <Outbreaks user={user} />
+    else if (section === 'danger') body = <Danger user={user} />
+    else if (section === 'prediction') body = <Prediction user={user} />
+    else if (section === 'simulator') body = <Simulator user={user} query={query} key={route} />
     else if (section === 'account') body = <Account user={user} onChange={refreshMe} />
     else body = <Overview user={user} />
     page = <Shell user={user} section={section || ''} onSignOut={signOut} theme={theme} setTheme={setTheme}>{body}</Shell>
@@ -92,24 +99,31 @@ export default function App() {
 }
 
 const NAV = [
-  { key: '', href: '#/', icon: 'overview', label: 'Overview' },
-  { key: 'farmers', href: '#/farmers', icon: 'farmers', label: 'Farmers', also: ['house'] },
-  { key: 'disease', href: '#/disease', icon: 'shield', label: 'Disease watch' },
+  { group: 'Monitor' },
+  { key: '', href: '#/', icon: 'overview', label: 'Dashboard' },
+  { key: 'farmers', href: '#/farmers', icon: 'farmers', label: 'Farmers live monitoring', also: ['house'] },
+  { group: 'AI models' },
+  { key: 'disease', href: '#/disease', icon: 'shield', label: 'Disease news', n: '1' },
+  { key: 'danger', href: '#/danger', icon: 'bell', label: 'Danger alarm', n: '2' },
+  { key: 'prediction', href: '#/prediction', icon: 'chart', label: 'Prediction', n: '3' },
 ]
 
 function Shell({ user, section, onSignOut, theme, setTheme, children }) {
   const [open, setOpen] = useState(false)
+  const [remote, setRemote] = useState(false)
+  const toggleRemote = useCallback(() => setRemote((r) => !r), [])
+  const tap = useSecretTaps(toggleRemote)
   useEffect(() => setOpen(false), [section])
   return (
     <div className="app">
       <aside className={`sidebar ${open ? 'open' : ''}`} aria-label="Main navigation">
-        <a href="#/" className="side-brand"><Logo /></a>
-        <div className="side-section">Menu</div>
+        <a href="#/" className="side-brand" onClick={tap}><Logo /></a>
         {NAV.map((n) => {
+          if (n.group) return <div key={n.group} className="side-section">{n.group}</div>
           const on = section === n.key || n.also?.includes(section)
           return (
             <a key={n.key} href={n.href} className={`nav-item ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined}>
-              <Icon name={n.icon} />{n.label}
+              <Icon name={n.icon} /><span className="grow">{n.label}</span>{n.n && <span className="nav-n">{n.n}</span>}
             </a>
           )
         })}
@@ -130,10 +144,11 @@ function Shell({ user, section, onSignOut, theme, setTheme, children }) {
       <div>
         <div className="mobile-top">
           <button className="icon-btn" onClick={() => setOpen(true)} aria-label="Open menu"><Icon name="menu" /></button>
-          <Logo />
+          <span onClick={tap}><Logo /></span>
           <span style={{ width: 36 }} />
         </div>
         <main className="main" onClick={() => open && setOpen(false)}>{children}</main>
+        <Remote open={remote} onClose={() => setRemote(false)} user={user} />
       </div>
     </div>
   )

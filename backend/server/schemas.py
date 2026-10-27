@@ -164,6 +164,19 @@ class SandboxSmsIn(BaseModel):
     text: str = Field(min_length=1, max_length=160)
 
 
+class SimReadingIn(BaseModel):
+    """Sensor simulator: pretend a sensor box sent these readings (demo / training)."""
+    device_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._-]+$")
+    temp: float = Field(ge=-5, le=50)
+    rh: float = Field(ge=0, le=100)
+    nh3: Optional[float] = Field(default=None, ge=0, le=100)
+    hold_min: int = Field(default=15, ge=1, le=120)
+
+
+class SimReleaseIn(BaseModel):
+    device_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._-]+$")
+
+
 class ScenarioIn(BaseModel):
     device_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._-]+$")
     kind: Literal["cold", "heat", "ammonia", "normal"]

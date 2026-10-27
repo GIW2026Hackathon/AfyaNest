@@ -115,4 +115,9 @@ export const api = {
   sandboxSms: (phone, text) => request('POST', '/api/v1/sandbox/sms', { phone, text }),
   sandboxInbox: (phone) => request('GET', `/api/v1/sandbox/inbox?phone=${encodeURIComponent(phone)}`),
   sandboxScenario: (device_id, kind) => request('POST', '/api/v1/sandbox/scenario', { device_id, kind }),
+  // sensor simulator + model boards
+  simReading: (b) => request('POST', '/api/v1/simulator/reading', b),
+  simRelease: (device_id) => request('POST', '/api/v1/simulator/release', { device_id }),
+  dangerBoard: () => request('GET', '/api/v1/models/danger'),
+  predictionBoard: () => request('GET', '/api/v1/models/prediction'),
 }

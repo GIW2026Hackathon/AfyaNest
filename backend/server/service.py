@@ -108,6 +108,8 @@ class AirNestService:
                 "farmer_id": h.get("farmer_id"), "sandbox": bool(h.get("sandbox")),
                 "has_heater": bool(h.get("has_heater")), "has_curtain": bool(h.get("has_curtain")),
                 "auto": a.get("auto"), "escalation": self._escalation_view(h["device_id"]),
+                "simulated_until": (int(self.scenario_hold[h["device_id"]])
+                                    if self.scenario_hold.get(h["device_id"], 0) > time.time() else None),
                 "level": a.get("level", "ok" if a else None), "status": a.get("status"),
                 "now_max_nh3": a.get("now_max_nh3"), "last_ts": a.get("ts"),
                 "has_nh3": a.get("has_nh3", a.get("now_max_nh3") is not None) if a else None,
@@ -531,6 +533,102 @@ class AirNestService:
         else:
             self.scenario_hold[device_id] = time.time() + SCENARIO_HOLD_S
         return {"reply": reply, "level": result.get("level"), "hold_s": 0 if kind == "normal" else SCENARIO_HOLD_S}
+
+    # ------------------------------------------------------------- sensor simulator (demo)
+    def simulate_reading(self, tenant_id, device_id, temp, rh, nh3=None, hold_min=15, actor_id=None):
+        """Pretend the house's sensor box sent these readings: they go through the real
+        pipeline (detection, prediction, automatic response, SMS rules). The background
+        simulation pauses for this house for `hold_min` minutes, then carries on by itself.
+        Real farmers on simulated data never receive these as SMS (held); test farmers see
+        them on their console phone."""
+        import random
+        h = self._house(tenant_id, device_id)
+        if (h.get("source") or "synthetic") == "live":
+            raise ServiceError(409, "This house has a real sensor box; its readings cannot be simulated.")
+        rnd = random.Random()
+        nodes = []
+        for n in range(6):
+            t = temp + (n - 2) * 0.3 + rnd.gauss(0, 0.15)
+            node = {"node": n, "temp_c": round(t, 1),
+                    "rh_pct": round(min(100.0, max(0.0, rh + rnd.gauss(0, 0.8))), 1)}
+            if nh3 is not None:
+                node["nh3_ppm"] = round(max(0.0, nh3 * (0.85 + 0.06 * n) + rnd.gauss(0, 0.3)), 1)
+            nodes.append(node)
+        # let a fresh situation alert again even if a similar one went out minutes ago
+        self.store.q("DELETE FROM alerts WHERE device_id=? AND ts>=? AND (kind='ammonia' OR kind LIKE 'climate:%')",
+                     (device_id, int(time.time()) - 6 * 3600))
+        reply, result = self.brain.ingest(h, {"device_id": device_id, "nodes": nodes}, time.time(),
+                                          mode="synthetic")
+        self.scenario_hold[device_id] = time.time() + hold_min * 60
+        self.store.audit("simulator.reading", tenant_id, actor_id, device_id,
+                         detail={"temp": temp, "rh": rh, "nh3": nh3})
+        return {"reply": reply, "level": result.get("level"), "detection": result.get("detection"),
+                "auto": result.get("auto"), "hold_until": int(self.scenario_hold[device_id]),
+                "sandbox": bool(h.get("sandbox"))}
+
+    def simulate_release(self, tenant_id, device_id):
+        self._house(tenant_id, device_id)
+        self.scenario_hold.pop(device_id, None)
+        return {"ok": True}
+
+    # ------------------------------------------------------------- model 2 / model 3 boards
+    def danger_board(self, tenant_id):
+        """Model 2: what is wrong in each house right now, what the box did, who was called."""
+        now = int(time.time())
+        farmers = {f["id"]: f["name"] for f in self.store.farmers_for_tenant(tenant_id)}
+        rows = []
+        for h in self.store.houses_for_tenant(tenant_id):
+            s = self._summary(h)
+            a = self._advice(h["device_id"]) or {}
+            alerts = self.store.q("SELECT ts, kind, level, message, delivered FROM alerts WHERE "
+                                  "device_id=? AND ts>=? AND level IN ('warn','danger') "
+                                  "ORDER BY ts DESC LIMIT 5", (h["device_id"], now - 86400))
+            rows.append({"device_id": h["device_id"], "name": s["name"], "farmer_id": h.get("farmer_id"),
+                         "farmer": farmers.get(h.get("farmer_id")), "county": s["county"],
+                         "level": s["level"], "now_max_nh3": s["now_max_nh3"], "now_temp": s["now_temp"],
+                         "now_rh": s["now_rh"], "comfort": s["comfort"], "source": s["source"],
+                         "sandbox": s["sandbox"], "detection": a.get("detection"),
+                         "climate": a.get("climate") or [], "auto": a.get("auto"),
+                         "escalation": s["escalation"], "has_fan": s["has_fan"],
+                         "has_heater": s["has_heater"], "has_curtain": s["has_curtain"],
+                         "alerts_24h": alerts, "simulated_until": s["simulated_until"]})
+        rank = {"danger": 0, "warn": 1, "watch": 2, "ok": 3, None: 4}
+        rows.sort(key=lambda r: (rank.get(r["level"], 4), r["name"]))
+        calls = self.store.q("SELECT COUNT(*) n FROM sms_outbox WHERE tenant_id=? AND ts>=? AND "
+                             "channel='voice'", (tenant_id, now - 86400), one=True)["n"]
+        n_alerts = sum(len(r["alerts_24h"]) for r in rows)
+        return {"model": self.brain.detector_name, "houses": rows,
+                "counts": {"danger": sum(r["level"] == "danger" for r in rows),
+                           "warn": sum(r["level"] == "warn" for r in rows),
+                           "alerts_24h": n_alerts, "calls_24h": calls,
+                           "acting": sum(1 for r in rows if r["auto"] and r["auto"].get("reasons"))}}
+
+    def prediction_board(self, tenant_id):
+        """Model 3: the next six hours for every house and when the farmer should check."""
+        farmers = {f["id"]: f["name"] for f in self.store.farmers_for_tenant(tenant_id)}
+        rows = []
+        for h in self.store.houses_for_tenant(tenant_id):
+            s = self._summary(h)
+            a = self._advice(h["device_id"]) or {}
+            fc = a.get("forecast")
+            rows.append({"device_id": h["device_id"], "name": s["name"], "farmer_id": h.get("farmer_id"),
+                         "farmer": farmers.get(h.get("farmer_id")), "level": s["level"],
+                         "status": a.get("status"), "has_nh3": s["has_nh3"], "comfort": s["comfort"],
+                         "now_max_nh3": s["now_max_nh3"], "now_temp": s["now_temp"],
+                         "peak_nh3": a.get("status_quo_peak_nh3"), "plan_peak_nh3": a.get("plan_peak_nh3"),
+                         "hours_to_warn": a.get("hours_to_warn"), "next_check": a.get("next_check"),
+                         "min_temp": min(fc["status_quo"]["temp_min"]) if fc else None,
+                         "max_temp": max(fc["status_quo"]["temp_max"]) if fc and fc["status_quo"].get("temp_max") else None,
+                         "nh3_curve": fc["status_quo"]["nh3_p50"] if fc else None,
+                         "plan_curve": fc["plan"]["nh3_p50"] if fc else None,
+                         "hours": fc["hours"] if fc else None,
+                         "action": a.get("action_en"), "source": s["source"], "sandbox": s["sandbox"]})
+        def soon(r):
+            nc = r["next_check"] or {}
+            return (nc.get("in_hours") is None, nc.get("in_hours") or 99, r["name"])
+        rows.sort(key=soon)
+        return {"model": self.brain.model_name, "horizon_h": 6,
+                "metrics": _load_json(os.path.join(self.model_dir, "gbm_test.json")), "houses": rows}
 
     def sandbox_inbox(self, tenant_id, phone):
         return self.store.outbox(tenant_id, phone, 60)

@@ -33,9 +33,9 @@ export default function Outbreaks({ user }) {
     <div className="page">
       <section className="hero rise">
         <div>
-          <p className="eyebrow">Early warning</p>
-          <h1 className="display">Disease watch</h1>
-          <p className="muted">Three helpers look after every flock: disease news from outside, danger inside the house, and what the next six hours will bring. Farmers only receive a short SMS or call.</p>
+          <p className="eyebrow">AI model 1 · outside the farm</p>
+          <h1 className="display">Disease news</h1>
+          <p className="muted">Reads news and government sources for Newcastle disease, bird flu, Gumboro and other outbreaks, matches them to each farmer’s county, and texts farmers how to protect their birds.</p>
         </div>
         {canAct && (
           <button className="btn" disabled={busy === 'refresh'} onClick={() => act(() => api.refreshOutbreaks(), 'refresh')}>
@@ -45,27 +45,12 @@ export default function Outbreaks({ user }) {
       </section>
       <ErrorNote error={err || ob.error} />
 
-      <section className="model-grid">
-        <ModelCard n="1" title="Disease news" sub="Reads the news for outbreaks" tone="nh3" delay={0}
-          lines={m ? [
-            m.outbreak_watch.last_run ? `Last checked ${ago(m.outbreak_watch.last_run)}` : 'Checks a minute after start, then every few hours',
-            `${m.outbreak_watch.sources} news and government sources`,
-            'Texts farmers in the affected county how to protect their birds',
-          ] : []} />
-        <ModelCard n="2" title="Danger alarm" sub="Watches the sensors right now" tone="temp" delay={80}
-          lines={m ? ['Ammonia too high', 'Too cold or too hot for the age of the birds', 'Sensor broken or offline', 'Danger = SMS and a phone call'] : []} />
-        <ModelCard n="3" title="Prediction" sub="Looks 6 hours ahead" tone="rh" delay={160}
-          lines={m ? [
-            'Predicts ammonia and temperature',
-            m.prediction.metrics ? `Usually within ${m.prediction.metrics.mae_1h_ppm.toFixed(1)} ppm one hour ahead` : 'Learns each house from its readings',
-            'Tells the farmer what time to check the house',
-          ] : []} />
+      <section className="grid-kpi">
+        <div className="card kpi rise"><span className="k-label">Last checked</span><span className="k-value small-k">{m?.outbreak_watch.last_run ? ago(m.outbreak_watch.last_run) : '—'}</span><span className="k-sub">every few hours, automatically</span></div>
+        <div className="card kpi rise" style={{ animationDelay: '60ms' }}><span className="k-label">Sources watched</span><span className="k-value">{m?.outbreak_watch.sources ?? '—'}</span><span className="k-sub">{m?.outbreak_watch.sources_ok != null ? `${m.outbreak_watch.sources_ok} reachable now` : 'news and government'}</span></div>
+        <div className="card kpi rise" style={{ animationDelay: '120ms' }}><span className="k-label">Reports for your counties</span><span className="k-value">{ob.data ? sigs.length : '—'}</span><span className="k-sub">{sigs.filter((x) => x.status === 'pending').length} waiting for your decision</span></div>
+        <div className="card kpi rise" style={{ animationDelay: '180ms' }}><span className="k-label">Sent automatically when</span><span className="k-value small-k">Official</span><span className="k-sub">and at least {m ? Math.round(m.outbreak_watch.auto_send_confidence * 100) : 80}% sure; news-only waits for you</span></div>
       </section>
-      {m && m.data.synthetic > 0 && (
-        <div className="note info">
-          {m.data.synthetic} of {m.data.houses} houses use <b>simulated readings</b> until their sensor box is installed. Their alerts are recorded but not sent. A house switches to real readings by itself when the box sends its first reading.
-        </div>
-      )}
 
       <div className="section-head"><h2>Disease reports near your farms</h2></div>
       {ob.loading && !ob.data && <div className="card skeleton" />}
@@ -134,18 +119,6 @@ export default function Outbreaks({ user }) {
           </div>
         </Modal>
       )}
-    </div>
-  )
-}
-
-function ModelCard({ n, title, sub, lines, tone, delay }) {
-  return (
-    <div className={`card model-card m-${tone} rise`} style={{ animationDelay: `${delay}ms` }}>
-      <div className="model-n">{n}</div>
-      <h3>{title}</h3>
-      <p className="eyebrow">{sub}</p>
-      {lines.length ? <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}</ul> : <Spinner />}
-      <span className="model-live"><i />on</span>
     </div>
   )
 }

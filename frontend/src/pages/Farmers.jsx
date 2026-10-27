@@ -40,7 +40,7 @@ export default function Farmers({ user, query }) {
     <div className="page">
       <section className="hero rise">
         <div>
-          <p className="eyebrow">Farmers</p>
+          <p className="eyebrow">Farmers live monitoring</p>
           <h1 className="display">Everyone we protect</h1>
           <p className="muted">Farmers are added here when they buy a sensor box. They never log in: they get SMS and phone calls on any phone.</p>
         </div>

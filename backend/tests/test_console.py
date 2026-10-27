@@ -155,6 +155,42 @@ def test_automatic_response_and_escalation(tmp_path):
     assert r["heater"] == 0 and r["fan"] == 0 and r["curtain"] is None and r["buzzer"] == 1
 
 
+def test_sensor_simulator_and_model_boards(tmp_path):
+    c, svc, tid = setup(tmp_path)
+    did = add_farmer(c, n_birds=300, has_fan=True)["device_id"]                 # test farmer
+    real = add_farmer(c, name="Peter Otieno", phone="+254722000111", county="Kisumu",
+                      test=False, has_fan=True)["device_id"]
+    svc.synthetic.tick(time.time(), backfill_slots=24)
+    # pretend the sensor box reports ammonia 34 ppm: danger, fan on, the test phone gets it
+    r = c.post("/api/v1/simulator/reading", json={"device_id": did, "temp": 30, "rh": 78,
+                                                  "nh3": 34, "hold_min": 10}).json()
+    assert r["level"] == "danger" and r["reply"]["fan"] == 1 and r["sandbox"]
+    assert r["hold_until"] > time.time() + 500
+    assert any(m["kind"] == "ammonia" for m in c.get("/api/v1/sandbox/inbox", params={"phone": PHONE}).json())
+    # the background simulation leaves the held house alone, others keep moving
+    assert did not in [h["device_id"] for h in svc.synthetic.houses()]
+    assert c.get(f"/api/v1/houses/{did}").json()["simulated_until"]
+    # a real farmer on simulated data: alert recorded but never texted
+    notify.SENT.clear()
+    r = c.post("/api/v1/simulator/reading", json={"device_id": real, "temp": 24, "rh": 70, "nh3": 30}).json()
+    assert r["level"] == "danger" and notify.SENT == []
+    # model boards
+    d = c.get("/api/v1/models/danger").json()
+    assert d["counts"]["danger"] >= 2 and d["houses"][0]["level"] == "danger"
+    assert d["houses"][0]["detection"]["reasons"]
+    p = c.get("/api/v1/models/prediction").json()
+    assert p["horizon_h"] == 6 and len(p["houses"]) == 2
+    # release: back to the background simulation
+    assert c.post("/api/v1/simulator/release", json={"device_id": did}).json()["ok"]
+    assert did in [h["device_id"] for h in svc.synthetic.houses()]
+    # a house with a real sensor box cannot be faked; viewers and strangers cannot simulate
+    svc.store.q("UPDATE houses SET source='live' WHERE device_id=?", (real,))
+    assert c.post("/api/v1/simulator/reading", json={"device_id": real, "temp": 24, "rh": 70}).status_code == 409
+    assert TestClient(c.app).post("/api/v1/simulator/reading",
+                                  json={"device_id": did, "temp": 24, "rh": 70}).status_code == 401
+    assert c.post("/api/v1/simulator/reading", json={"device_id": did, "temp": 999, "rh": 70}).status_code == 422
+
+
 def test_real_farmer_welcome_is_sent(tmp_path):
     c, svc, tid = setup(tmp_path)
     notify.SENT.clear()

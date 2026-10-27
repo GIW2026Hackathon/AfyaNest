@@ -32,7 +32,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse  # n
 from server.auth import AuthError  # noqa: E402
 from server.schemas import (CodeIn, FarmerIn, FarmerUpdate, HouseIn, HouseUpdate,  # noqa: E402
                             IngestIn, IngestReply, InviteIn, LoginIn, MemberUpdate, OrgUpdate,
-                            PasswordChangeIn, PasswordIn, ProvisionIn, SandboxSmsIn,
+                            PasswordChangeIn, PasswordIn, ProvisionIn, SandboxSmsIn, SimReadingIn, SimReleaseIn,
                             ScenarioIn, SignupIn, StatusOut)
 from server.security import env, same  # noqa: E402
 from server.service import AirNestService, ServiceError  # noqa: E402
@@ -417,7 +417,31 @@ def create_app(db=None, model_dir=None, admin_key=None, vault=None, connect=None
         xml = f'<?xml version="1.0" encoding="UTF-8"?><Response><Say>{escape(msg)}</Say></Response>'
         return Response(xml, media_type="application/xml")
 
+    # ------------------------------------------------------------ sensor simulator (demo)
+    @app.post("/api/v1/simulator/reading")
+    async def sim_reading(body: SimReadingIn, request: Request):
+        _, u = await ctx(request, write=True, roles=("owner", "manager"))
+        if not auth.rl.hit("simulator", u["id"], 60, 60):
+            raise HTTPException(429, "Slow down.")
+        return await run(svc.simulate_reading, u["tenant_id"], body.device_id, body.temp, body.rh,
+                         body.nh3, body.hold_min, u["id"])
+
+    @app.post("/api/v1/simulator/release")
+    async def sim_release(body: SimReleaseIn, request: Request):
+        _, u = await ctx(request, write=True, roles=("owner", "manager"))
+        return await run(svc.simulate_release, u["tenant_id"], body.device_id)
+
     # ------------------------------------------------------------ the three models
+    @app.get("/api/v1/models/danger")
+    async def models_danger(request: Request):
+        _, u = await ctx(request)
+        return await run(svc.danger_board, u["tenant_id"])
+
+    @app.get("/api/v1/models/prediction")
+    async def models_prediction(request: Request):
+        _, u = await ctx(request)
+        return await run(svc.prediction_board, u["tenant_id"])
+
     @app.get("/api/v1/models")
     async def models(request: Request):
         _, u = await ctx(request)
